@@ -13,7 +13,7 @@ client.on('clientReady', ()=> {
 });
 
 const IGNORE_PREFIX="!";
-const CHANNELS=['1412728141339688982']
+const CHANNELS=['']
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_AI_KEY,
