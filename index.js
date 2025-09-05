@@ -17,13 +17,26 @@ const CHANNELS=['1412728141339688982']
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_AI_KEY,
-})
+});
+
+// Personality instruction (easy to swap later)
+let BOT_PERSONALITY = 'You are a friendly chatbot.';
+
+let conversation = [];
 
 //Actions for when a message is sent
 client.on('messageCreate', async (message)=> {
     if (message.author.bot)return;
     if (message.content.startsWith(IGNORE_PREFIX))return;
     if (!CHANNELS.includes(message.channelId) && !message.mentions.users.has(client.user.id))return; //Check if message sent in listed channels and if the pings bot.
+
+    // ✅ Handle commands before calling Gemini
+    if (message.content.startsWith("/be ")) {
+    BOT_PERSONALITY = `You are now ${message.content.replace("/be ", "").trim()}. Stay fully in character.`;
+    conversation = []; // wipe history so new personality takes over
+    await message.reply(`Personality switched! ${BOT_PERSONALITY}`);
+    return;
+    };
 
     await message.channel.sendTyping();
 
@@ -33,12 +46,12 @@ client.on('messageCreate', async (message)=> {
     }, 5000); 
 
 
-    let conversation = [];
-
-    conversation.push({
-    role: "model",
-    parts: [{ text: "Gemini is a friendly chatbot." }],
-    });
+    if (message.content === "/wipe") {
+        clearInterval(sendTypingInterval);
+        conversation = [];
+        message.reply("Memory has been wiped 🧹");
+        return;
+    }
 
     // Grab last 10 messages
     let prevMessages = await message.channel.messages.fetch({ limit: 10 });
@@ -59,11 +72,17 @@ client.on('messageCreate', async (message)=> {
         parts: [{ text: msg.content }],
         });
     }
+    return;
     });
-
+    
     const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: conversation,
+    systemInstruction: {
+    role: "system",
+    parts: [{ text: BOT_PERSONALITY }],
+        },
+    
     }).catch((error)=> console.error('Gemini Error:\n', error));
 
     clearInterval(sendTypingInterval);
@@ -72,6 +91,7 @@ client.on('messageCreate', async (message)=> {
         message.reply("I'm having trouble with the Gemini API. Try again in a moment.");
         return;
     }
+
 
     const responsMessage=response.text;
     const chunkSizeLimit=2000;
